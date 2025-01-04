@@ -22,6 +22,7 @@ class Game:
         else:
             self.code = code
         self.dot_nums = Counter(self.code)  # color counts
+        print(f"The secret pattern is {self.code}")  # sanity check
         
         self.code_len = CODE_LEN  # default 4
         self.max_guesses = MAX_GUESSES  # default 8
@@ -45,7 +46,6 @@ class Game:
                 code += "🟣"
 
         self.code = code
-        print(f"The secret pattern is {self.code}")  # sanity check
 
 
     def add_guess(self, guess):

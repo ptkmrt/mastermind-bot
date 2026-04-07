@@ -1,15 +1,5 @@
 """
-Mastermind description.
-Note: this local file may be out of date with the one running on pythonanywhere
-
-TODO new feature ideas ...
-- race mode (2 users): each sets a code that the other has to guess. 
-  whoever guesses the other's first wins.
-    - command: /race
-- user stats across a channel/group (player: # wins, avg tries per win, etc.)
-    - stored in group states ?
-    - would need to keep this data and only clear upon certain command, e.g. /clearstats
-    - command to view: /stats --> print out
+Note: file may be out of date with the one running on pythonanywhere
 """
 
 import logging

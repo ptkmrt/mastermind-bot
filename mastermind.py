@@ -29,7 +29,7 @@ from keyboard import keyboard_reply
 from game import Game, CODE_LEN, re
 
 from functools import wraps
-from google import genai
+# from google import genai
 import os
 from dotenv import load_dotenv
 
@@ -49,8 +49,8 @@ active_games = {}
 group_states = {}
 
 ### NEW : define ai vars ###
-client = genai.Client()
-CHAT = client.aio.chats.create(model='gemini-2.0-flash-thinking-exp')
+# client = genai.Client()
+# CHAT = client.aio.chats.create(model='gemini-2.0-flash-thinking-exp')
 
 def restricted(func):
     """To restrict who can use this bot"""
@@ -130,6 +130,8 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Processes user's guess"""
     chat_id = update.message.chat_id
     game = active_games.get(chat_id)
+
+    logger.info("In handle_guess")
 
     # or if not group_states[chat_id]["game_active"]
     if not game:
@@ -216,6 +218,8 @@ async def handle_setter(update: Update, context: CallbackContext):
 
 async def set_pattern(update: Update, context: CallbackContext):
     """For multiplayer; sets custom pattern from the setter"""
+
+    logger.info("In set_pattern for user %s", update.message.from_user.first_name)
 
     # 1) check if this user is designated setter
     user_id = get_user(update).id
@@ -336,13 +340,13 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Let's chat! 🤗🤳 Send \"bye\" anytime you're finished.")
 
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_input = update.message.text
-    if user_input.lower() == "bye":
-        await update.message.reply_text("Goodbye!")
-    else:
-        response = await CHAT.send_message(user_input)
-        await update.message.reply_text(response.text)
+# async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     user_input = update.message.text
+#     if user_input.lower() == "bye":
+#         await update.message.reply_text("Goodbye!")
+#     else:
+#         response = await CHAT.send_message(user_input)
+#         await update.message.reply_text(response.text)
 
 
 async def unknown(update: Update, context: CallbackContext):
@@ -378,13 +382,16 @@ async def handle_regex_match(update: Update, context: CallbackContext):
         await update.message.reply_text("Start the bot first with /start.")
         return
     
-    logger.info("chat id: %d", update.message.chat_id)
+    logger.info("In handle_regex_match, chat id: %d", update.message.chat_id)
     
     if group_states[chat_id]["setter_choosing"]:
+        logger.info("Calling set_pattern:")
         await set_pattern(update, context)
     elif group_states[chat_id]["multiplayer"] and not group_states[chat_id]["game_active"]:
+        logger.info("Calling handle_setter:")
         await handle_setter(update, context)
     else:
+        logger.info("Calling handle_guess:")
         await handle_guess(update, context)
 
 
@@ -409,8 +416,8 @@ def main():
     application.add_handler(CommandHandler("multiplayer", multiplayer))
     application.add_handler(CommandHandler("setter", handle_setter))
 
-    application.add_handler(CommandHandler("chat", chat))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # application.add_handler(CommandHandler("chat", chat))
+    # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     application.add_handler(MessageHandler(RegexFilter(), handle_regex_match))
 

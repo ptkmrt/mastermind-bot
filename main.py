@@ -37,6 +37,13 @@ REGEX = re.compile(f"^({'|'.join(re.escape(d) for d in dots)}){{{CODE_LEN}}}$")
 
 active_games = {}
 group_states = {}
+setter_group_map = {}
+
+def clear_setter_mapping_for_group(chat_id):
+    """Remove any setter->group mappings when a group game ends."""
+    for user_id, group_id in list(setter_group_map.items()):
+        if group_id == chat_id:
+            del setter_group_map[user_id]
 
 ### NEW : define ai vars ###
 # client = genai.Client()
@@ -192,8 +199,9 @@ async def handle_setter(update: Update, context: CallbackContext):
 
     user_id = update.message.from_user.id
     group_states[chat_id]["setter"] = user_id
+    setter_group_map[user_id] = chat_id
 
-    logger.info("User %s choosing code for chat %d", 
+    logger.info("User %s choosing code for chat %d",
                 update.message.from_user.first_name,
                 chat_id)
 
@@ -202,7 +210,7 @@ async def handle_setter(update: Update, context: CallbackContext):
         msg = ("Set the secret pattern! It should be 4 dots using any of the "
                 "following, repeats allowed: 🔴🟠🟡🟢🔵🟣")
         await context.bot.send_message(chat_id=user_id, text=msg)
-    except:
+    except Exception:
         await update.message.reply_text("Please start a private chat first.")
 
 
@@ -211,9 +219,16 @@ async def set_pattern(update: Update, context: CallbackContext):
 
     logger.info("In set_pattern for user %s", update.message.from_user.first_name)
 
-    # 1) check if this user is designated setter
+    # 1) determine the group chat for this setter
     user_id = get_user(update).id
-    chat_id = context.user_data["groupchat_id"]
+    chat_id = setter_group_map.get(user_id)
+
+    if chat_id is None and update.message.chat_id in group_states:
+        chat_id = update.message.chat_id
+
+    if chat_id is None or chat_id not in group_states:
+        await update.message.reply_text("Unable to determine the group game. Start the game in the group first.")
+        return
 
     if group_states[chat_id]["setter"] != user_id:
         await update.message.reply_text("You're not the setter for this game!")
@@ -223,6 +238,7 @@ async def set_pattern(update: Update, context: CallbackContext):
     custom_pattern = update.message.text
     if not await is_valid_pattern(custom_pattern):
         await update.message.reply_text("Invalid pattern - try another one.")
+        return
     
     # 3) create game associated with groupchat id
     active_games[chat_id] = Game(code=custom_pattern)
@@ -291,6 +307,8 @@ async def quit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No active game found. Type /play to start a game.")
         return
     
+    clear_setter_mapping_for_group(chat_id)
+
     msg = f"🙄 ... The pattern was {game.code} \n\n Send /play to try again, or /end to exit."
     await update.message.reply_text(msg)
     return ConversationHandler.END
@@ -317,8 +335,10 @@ async def end(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game_start = False
 
     context.chat_data.clear()
-    group_states[chat_id].clear()
-    del group_states[chat_id]
+    if chat_id in group_states:
+        clear_setter_mapping_for_group(chat_id)
+        group_states[chat_id].clear()
+        del group_states[chat_id]
 
     return ConversationHandler.END
 
@@ -367,22 +387,33 @@ def get_user(update):
 
 async def handle_regex_match(update: Update, context: CallbackContext):
     """Handles pattern input"""
-    chat_id = context.user_data["groupchat_id"]
-    if chat_id not in group_states:
-        await update.message.reply_text("Start the bot first with /start.")
+    message = update.message
+    if not message:
         return
-    
-    logger.info("In handle_regex_match, chat id: %d", update.message.chat_id)
-    
-    if group_states[chat_id]["setter_choosing"]:
-        logger.info("Calling set_pattern:")
-        await set_pattern(update, context)
-    elif group_states[chat_id]["multiplayer"] and not group_states[chat_id]["game_active"]:
-        logger.info("Calling handle_setter:")
-        await handle_setter(update, context)
-    else:
-        logger.info("Calling handle_guess:")
-        await handle_guess(update, context)
+
+    chat_id = message.chat_id
+    user_id = message.from_user.id
+
+    logger.info("In handle_regex_match, chat id: %d, user %d", chat_id, user_id)
+
+    if message.chat.type == "private":
+        if user_id in setter_group_map:
+            logger.info("Private setter reply detected; calling set_pattern")
+            await set_pattern(update, context)
+        else:
+            await message.reply_text("I only accept secret codes from the current setter in a private chat.")
+        return
+
+    if chat_id not in group_states:
+        await message.reply_text("Start the bot first with /start.")
+        return
+
+    if group_states[chat_id]["multiplayer"] and not group_states[chat_id]["setter_ready"]:
+        await message.reply_text("The setter hasn't chosen a code yet!")
+        return
+
+    logger.info("Group guess detected; calling handle_guess")
+    await handle_guess(update, context)
 
 
 class RegexFilter(filters.MessageFilter):

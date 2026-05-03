@@ -19,7 +19,6 @@ from keyboard import keyboard_reply
 from game import Game, CODE_LEN, re
 
 from functools import wraps
-# from google import genai
 import os
 from dotenv import load_dotenv
 
@@ -44,10 +43,6 @@ def clear_setter_mapping_for_group(chat_id):
     for user_id, group_id in list(setter_group_map.items()):
         if group_id == chat_id:
             del setter_group_map[user_id]
-
-### NEW : define ai vars ###
-# client = genai.Client()
-# CHAT = client.aio.chats.create(model='gemini-2.0-flash-thinking-exp')
 
 def restricted(func):
     """To restrict who can use this bot"""
@@ -283,9 +278,9 @@ async def help(update: Update, context: CallbackContext):
 @restricted
 async def rules(update: Update, context: CallbackContext):
     """Displays game rules"""
-    msg = ("After starting a game, you will have 8 tries to\n guess the secret"
+    msg = ("After starting a game, you have 8 tries to\n guess the secret"
     " pattern, which is a 4-dot combination of the colors: 🔴🟠🟡🟢🔵🟣"
-    "\n\nThe bot will respond with a new 4-square sequence: ◼ means you have a dot"
+    "\n\nThe given clue is a 4-square sequence: ◼ means you have a dot"
     " in the correct spot, while ◻ means you have a dot in the incorrect spot."
     "\n\nGood luck! 😎")
 
@@ -323,8 +318,8 @@ async def end(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info("User %s ending chat", update.message.from_user.first_name)  
 
     chat_id = update.message.chat_id
-    msg = ("You have to /quit the active game first to end!" if chat_id in active_games 
-           else "Bye bye for now! Send /start whenever you want to play again 🤗")
+    msg = ("You have to /quit the active game first!" if chat_id in active_games 
+           else "Bye for now! Send /start whenever you want to play again 🤗")
     
     if update.callback_query:
         await update.callback_query.message.reply_text(msg)
@@ -348,15 +343,6 @@ async def end(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Begins a chat with a GEMINI AI chatbot"""
     await update.message.reply_text("Let's chat! 🤗🤳 Send \"bye\" anytime you're finished.")
-
-
-# async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     user_input = update.message.text
-#     if user_input.lower() == "bye":
-#         await update.message.reply_text("Goodbye!")
-#     else:
-#         response = await CHAT.send_message(user_input)
-#         await update.message.reply_text(response.text)
 
 
 async def unknown(update: Update, context: CallbackContext):
@@ -436,9 +422,6 @@ def main():
     application.add_handler(CommandHandler("bot", play))
     application.add_handler(CommandHandler("multiplayer", multiplayer))
     application.add_handler(CommandHandler("setter", handle_setter))
-
-    # application.add_handler(CommandHandler("chat", chat))
-    # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     application.add_handler(MessageHandler(RegexFilter(), handle_regex_match))
 

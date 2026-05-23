@@ -265,7 +265,6 @@ async def help(update: Update, context: CallbackContext):
     /rules  - how to play
     /play   - start a new game
     /quit   - quit an active game
-    /chat   - just to chat. no game :)
     /end    - stop the bot
     /help   - see this list again"""
 
@@ -383,11 +382,18 @@ async def handle_regex_match(update: Update, context: CallbackContext):
     logger.info("In handle_regex_match, chat id: %d, user %d", chat_id, user_id)
 
     if message.chat.type == "private":
-        if user_id in setter_group_map:
+        group_chat_id = setter_group_map.get(user_id)
+        if group_chat_id is not None and group_states.get(group_chat_id, {}).get("setter_choosing"):
             logger.info("Private setter reply detected; calling set_pattern")
             await set_pattern(update, context)
-        else:
-            await message.reply_text("I only accept secret codes from the current setter in a private chat.")
+            return
+
+        if chat_id in active_games:
+            logger.info("Private game guess detected; calling handle_guess")
+            await handle_guess(update, context)
+            return
+
+        await message.reply_text("I only accept secret codes from the current setter in a private chat.")
         return
 
     if chat_id not in group_states:
